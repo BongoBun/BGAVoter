@@ -4,21 +4,24 @@ import argparse
 import sys
 import asyncio
 
+from bga_voter.client import BGAVoter
+from bga_voter.config import (
+    load_config,
+    update_config_interactive,
+    validate_config,
+    CONFIG_FILE,
+)
+from bga_voter.models import RankingMode
+from bga_voter.logger import AsyncLogger, LOGFILE as BGA_LOGFILE
+from bga_voter.utils import random_fun_fact
 
-from client import BGAVoter
-from config import load_config, update_config_interactive, validate_config, CONFIG_FILE
-from models import RankingMode
-from utils import random_fun_fact
 
+async def interactive_menu_async(client: BGAVoter, config: dict) -> None:
+    """Async interactive menu that reuses a single event loop."""
 
-def interactive_menu(client: BGAVoter, config: dict) -> None:
-    """
-    Display an interactive menu for user to choose operations.
+    async def async_input(prompt: str) -> str:
+        return await asyncio.to_thread(input, prompt)
 
-    Args:
-        client: Initialized BGAVoter client
-        config: Configuration dictionary
-    """
     while True:
         print("\n" + "=" * 50)
         print("BGA Voter - Interactive Menu")
@@ -30,37 +33,34 @@ def interactive_menu(client: BGAVoter, config: dict) -> None:
         print("5. Exit")
         print("=" * 50)
 
-        choice = input("\nEnter your choice (1-5): ").strip()
+        choice = (await async_input("\nEnter your choice (1-5): ")).strip()
 
         if choice == "1":
             print("\n--- Resetting All Downvotes ---")
-            asyncio.run(client.reset_all_downvotes_async(config["player_id"]))
+            await client.reset_all_downvotes_async(config["player_id"])
 
         elif choice == "2":
             print("\n--- Adjusting Reputation (ELO Mode) ---")
-            asyncio.run(
-                client._adjust_reputation_async(
-                    config["player_id"],
-                    config["game_id"],
-                    config["elo_safety_threshold"],
-                    config["elo_search_depth"],
-                    RankingMode.ELO,
-                )
+            await client._adjust_reputation_async(
+                config["player_id"],
+                config["game_id"],
+                config["elo_safety_threshold"],
+                config["elo_search_depth"],
+                RankingMode.ELO,
             )
 
         elif choice == "3":
             print("\n--- Adjusting Reputation (Arena Mode) ---")
-            asyncio.run(
-                client._adjust_reputation_async(
-                    config["player_id"],
-                    config["game_id"],
-                    config["arena_safety_threshold"],
-                    config["arena_search_depth"] + 1,
-                    RankingMode.ARENA,
-                )
+            await client._adjust_reputation_async(
+                config["player_id"],
+                config["game_id"],
+                config["arena_safety_threshold"],
+                config["arena_search_depth"] + 1,
+                RankingMode.ARENA,
             )
 
         elif choice == "4":
+            # Runs synchronously; small I/O so acceptable. If desired wrap in to_thread.
             config = update_config_interactive(config)
 
         elif choice == "5":
@@ -77,8 +77,8 @@ def interactive_menu(client: BGAVoter, config: dict) -> None:
             print("\n[ERROR] Invalid choice. Please enter a number between 1-5.")
 
 
-def main() -> None:
-    """Main entry point with CLI argument support."""
+async def main_async() -> None:
+    """Async main entry point with single event loop."""
     parser = argparse.ArgumentParser(
         description="BGA Voter - Manage player reputations on Board Game Arena"
     )
@@ -110,9 +110,6 @@ def main() -> None:
         print(f"Please edit {CONFIG_FILE} with your credentials and settings.\n")
         sys.exit(0)
 
-    # Initialize client
-    client = BGAVoter(config["cookies"], config["headers"])
-
     # Check if multiple arguments provided
     args_count = sum([args.reset, args.elo, args.arena])
 
@@ -121,39 +118,39 @@ def main() -> None:
         parser.print_help()
         return
 
-    # If no arguments provided, default to interactive mode
-    if args_count == 0:
-        interactive_menu(client, config)
-        return
+    async with BGAVoter(
+        config["cookies"], config["headers"], logger=AsyncLogger(BGA_LOGFILE)
+    ) as client:
+        # Interactive mode
+        if args_count == 0:
+            await interactive_menu_async(client, config)
+            return
 
-    # Execute based on argument
-    if args.reset:
-        print("\n--- Resetting All Downvotes ---")
-        asyncio.run(client.reset_all_downvotes_async(config["player_id"]))
-
-    elif args.elo:
-        print("\n--- Adjusting Reputation (ELO Mode) ---")
-        asyncio.run(
-            client._adjust_reputation_async(
+        if args.reset:
+            print("\n--- Resetting All Downvotes ---")
+            await client.reset_all_downvotes_async(config["player_id"])
+        elif args.elo:
+            print("\n--- Adjusting Reputation (ELO Mode) ---")
+            await client._adjust_reputation_async(
                 config["player_id"],
                 config["game_id"],
                 config["elo_safety_threshold"],
                 config["elo_search_depth"],
                 RankingMode.ELO,
             )
-        )
-
-    elif args.arena:
-        print("\n--- Adjusting Reputation (Arena Mode) ---")
-        asyncio.run(
-            client._adjust_reputation_async(
+        elif args.arena:
+            print("\n--- Adjusting Reputation (Arena Mode) ---")
+            await client._adjust_reputation_async(
                 config["player_id"],
                 config["game_id"],
                 config["arena_safety_threshold"],
                 config["arena_search_depth"] + 1,
                 RankingMode.ARENA,
             )
-        )
+
+
+def main() -> None:
+    asyncio.run(main_async())
 
 
 if __name__ == "__main__":
