@@ -2,7 +2,6 @@
 
 import json
 import os
-import sys
 
 
 CONFIG_FILE = "config.json"

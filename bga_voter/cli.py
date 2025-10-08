@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import asyncio
 
 
 from client import BGAVoter
@@ -33,26 +34,30 @@ def interactive_menu(client: BGAVoter, config: dict) -> None:
 
         if choice == "1":
             print("\n--- Resetting All Downvotes ---")
-            client.reset_all_downvotes(config["player_id"])
+            asyncio.run(client.reset_all_downvotes_async(config["player_id"]))
 
         elif choice == "2":
             print("\n--- Adjusting Reputation (ELO Mode) ---")
-            client.adjust_reputation(
-                config["player_id"],
-                config["game_id"],
-                config["elo_safety_threshold"],
-                config["elo_search_depth"],
-                RankingMode.ELO,
+            asyncio.run(
+                client._adjust_reputation_async(
+                    config["player_id"],
+                    config["game_id"],
+                    config["elo_safety_threshold"],
+                    config["elo_search_depth"],
+                    RankingMode.ELO,
+                )
             )
 
         elif choice == "3":
             print("\n--- Adjusting Reputation (Arena Mode) ---")
-            client.adjust_reputation(
-                config["player_id"],
-                config["game_id"],
-                config["arena_safety_threshold"],
-                config["arena_search_depth"] + 1,
-                RankingMode.ARENA,
+            asyncio.run(
+                client._adjust_reputation_async(
+                    config["player_id"],
+                    config["game_id"],
+                    config["arena_safety_threshold"],
+                    config["arena_search_depth"] + 1,
+                    RankingMode.ARENA,
+                )
             )
 
         elif choice == "4":
@@ -124,26 +129,30 @@ def main() -> None:
     # Execute based on argument
     if args.reset:
         print("\n--- Resetting All Downvotes ---")
-        client.reset_all_downvotes(config["player_id"])
+        asyncio.run(client.reset_all_downvotes_async(config["player_id"]))
 
     elif args.elo:
         print("\n--- Adjusting Reputation (ELO Mode) ---")
-        client.adjust_reputation(
-            config["player_id"],
-            config["game_id"],
-            config["elo_safety_threshold"],
-            config["elo_search_depth"],
-            RankingMode.ELO,
+        asyncio.run(
+            client._adjust_reputation_async(
+                config["player_id"],
+                config["game_id"],
+                config["elo_safety_threshold"],
+                config["elo_search_depth"],
+                RankingMode.ELO,
+            )
         )
 
     elif args.arena:
         print("\n--- Adjusting Reputation (Arena Mode) ---")
-        client.adjust_reputation(
-            config["player_id"],
-            config["game_id"],
-            config["arena_safety_threshold"],
-            config["arena_search_depth"] + 1,
-            RankingMode.ARENA,
+        asyncio.run(
+            client._adjust_reputation_async(
+                config["player_id"],
+                config["game_id"],
+                config["arena_safety_threshold"],
+                config["arena_search_depth"] + 1,
+                RankingMode.ARENA,
+            )
         )
 
 

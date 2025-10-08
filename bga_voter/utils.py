@@ -60,6 +60,3 @@ def random_fun_fact(filename: str = "ark_nova_fun_facts.txt") -> None:
     """
     fun_fact = load_fun_facts(filename)
     print(f"\nFun Fact!\n{random.choice(fun_fact)}\n")
-
-
-import random
